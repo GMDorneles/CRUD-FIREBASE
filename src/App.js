@@ -10,13 +10,27 @@ import {
   doc,
 } from "firebase/firestore";
 import { async } from '@firebase/util';
-
+import { storage } from "./firebase-config";
+import { ref, uploadBytes, listAll, getDownloadURL } from "firebase/storage";
+import { v4 } from "uuid";
 function App() {
   const [newName, setNewName] = useState("");
   const [newAge, setNewAge] = useState(0);
   const [users, setUsers] = useState([]);
   const usersCollectionRef = collection(db, "users");
+  const [imageUpload, setImageUpload] = useState(null);
+  const [imageList, setImageList] = useState([]);
+  const imageListRef = ref(storage, "images/");
 
+  const uploadImage = () => {
+    if (imageUpload == null) return;
+    const imageRef = ref(storage, `images/${imageUpload.name + v4()}`);
+    uploadBytes(imageRef, imageUpload).then((snaphsot) => {
+      getDownloadURL(snaphsot.ref).then((url) => {
+        setImageList((prev) => [...prev, url]);
+      });
+    });
+  };
   const createUser = async () => {
     await addDoc(usersCollectionRef, { name: newName, age: parseInt(newAge) });
   };
@@ -39,6 +53,15 @@ function App() {
     };
     getUsers();
   }, []);
+  useEffect(() => {
+    listAll(imageListRef).then((response) => {
+      response.items.forEach((item) => {
+        getDownloadURL(item).then((url) => {
+          setImageList((prev) => [...prev, url]);
+        });
+      });
+    });
+  }, []);
 
   return (
     <div className="App">
@@ -57,6 +80,16 @@ function App() {
             <button onClick={() => deleteUser(user.id)}>delete</button>
           </div>
         );
+      })}
+      <input
+        type="file"
+        onChange={(event) => {
+          setImageUpload(event.target.files[0]);
+        }}
+      />
+      <button onClick={uploadImage}> Upload Image</button>
+      {imageList.map((url) => {
+        return <img src={url} />;
       })}
     </div>
   );
